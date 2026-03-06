@@ -669,3 +669,21 @@ tr:hover td { background: var(--surface-2); }
 .pad-sm        { padding: 24px; }
 .card-body-sm  { padding: 12px 20px; }
 .goal-delete-wrap { margin-left: auto; }
+
+/* ── ADDITIONAL UTILITY CLASSES ─────────────────────────────────────── */
+.habit-icon-bg     { background: #6366f122; }
+.flex-1-min0       { flex: 1; min-width: 0; }
+.flex-1            { flex: 1; }
+.ach-trophy-icon   { font-size: 32px; }
+.ach-title         { font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.ach-badge-lg      { font-size: 14px; padding: 6px 14px; }
+.progress-bar-thick{ height: 10px; }
+.badge-date-locked { color: var(--text-dim); }
+.card-mt           { margin-top: 24px; }
+.tips-section-title{ font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.txn-delete-ml     { margin-left: 8px; }
+.energy-hint       { display: flex; justify-content: space-between; margin-top: 4px; }
+.stats-grid-2col   { grid-template-columns: 1fr 1fr; }
+.mood-history-info { flex: 1; }
+.mood-entry-title  { font-size: 13px; font-weight: 600; }
+.mood-entry-note   { margin-top: 2px; }

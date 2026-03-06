@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% block title %}Budget{% endblock %}
+{% block page_title %}Budget{% endblock %}
+{% block page_sub %}Know where every peso goes{% endblock %}
+{% block topbar_actions %}
+  <button class="btn btn-secondary" onclick="openModal('cat-modal')">+ Category</button>
+  <button class="btn btn-primary" onclick="openModal('txn-modal')">+ Transaction</button>
+{% endblock %}
+
+{% block content %}
+<!-- Summary Stats -->
+<div class="stats-grid mb-4">
+  <div class="stat-card green">
+    <div class="stat-icon">💵</div>
+    <div class="stat-value">₱{{ "{:,.0f}".format(income) }}</div>
+    <div class="stat-label">Income This Month</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon">💸</div>
+    <div class="stat-value">₱{{ "{:,.0f}".format(spending) }}</div>
+    <div class="stat-label">Spent This Month</div>
+  </div>
+  <div class="stat-card {% if income - spending >= 0 %}indigo{% else %}red{% endif %}">
+    <div class="stat-icon">📊</div>
+    <div class="stat-value">₱{{ "{:,.0f}".format(income - spending) }}</div>
+    <div class="stat-label">Net Balance</div>
+  </div>
+  <div class="stat-card amber">
+    <div class="stat-icon">🎯</div>
+    <div class="stat-value">{{ "{:.0f}".format((spending/income*100) if income > 0 else 0) }}%</div>
+    <div class="stat-label">Spending Rate</div>
+  </div>
+</div>
+
+<div class="grid-2 mb-4">
+  <!-- Category Breakdown -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📂 By Category</span>
+    </div>
+    <div class="card-body">
+      {% if by_cat %}
+      {% for c in by_cat %}
+      <div class="cat-bar">
+        <div class="cat-bar-label">
+          <span>{{ c.icon }} {{ c.name }}</span>
+          <span>₱{{ "{:,.0f}".format(c.spent) }}{% if c.budget_limit %} / ₱{{ "{:,.0f}".format(c.budget_limit) }}{% endif %}</span>
+        </div>
+        <div class="progress-bar">
+          {% set pct = [(c.spent / c.budget_limit * 100) if c.budget_limit > 0 else 0, 100] | min %}
+          <div class="progress-fill {% if pct > 90 %}red{% elif pct > 70 %}amber{% else %}{% endif %}"
+               data-width="{{ pct }}"></div>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="empty-state pad-sm">
+        <div class="empty-state-sub">Add a category to track spending by type.</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Monthly Trend Chart -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📈 6-Month Trend</span>
+    </div>
+    <div class="card-body">
+      <canvas id="trendChart" height="200"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Transactions -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">💳 Transactions</span>
+    <form method="GET" class="topbar-date-form">
+      <select name="month_year" class="form-control date-input" title="Year" aria-label="Select year" onchange="this.form.submit()">
+        {% for y in range(2023, 2028) %}
+        <option value="{{ y }}" {% if month.split('-')[0]|int == y %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+      <select name="month_num" class="form-control date-input" title="Month" aria-label="Select month" onchange="this.form.submit()">
+        {% set mnames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+        {% for i in range(1,13) %}
+        <option value="{{ '%02d'%i }}" {% if month.split('-')[1] == '%02d'%i %}selected{% endif %}>{{ mnames[i-1] }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  <div class="card-body card-body-flush">
+    {% if transactions %}
+    {% for t in transactions %}
+    <div class="txn-item">
+      <div class="txn-icon">{{ t.cat_icon or ('💵' if t.type == 'income' else '💸') }}</div>
+      <div class="txn-info">
+        <div class="txn-desc">{{ t.description or t.cat_name or t.type.title() }}</div>
+        <div class="txn-meta">{{ t.cat_name or '—' }} · {{ t.transaction_date }}</div>
+      </div>
+      <div class="txn-amount {{ t.type }}">
+        {{ '+' if t.type == 'income' else '-' }}₱{{ "{:,.2f}".format(t.amount) }}
+      </div>
+      <form method="POST" action="{{ url_for('delete_transaction', tid=t.id) }}" class="txn-delete-form txn-delete-ml">
+        <button type="submit" class="btn btn-ghost btn-sm" title="Delete transaction" aria-label="Delete transaction">🗑</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">💳</div>
+      <div class="empty-state-title">No transactions this month</div>
+      <div class="empty-state-sub">Start recording your income and expenses.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ADD CATEGORY MODAL -->
+<div class="modal-overlay" id="cat-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <span class="modal-title">📂 Add Category</span>
+      <button class="modal-close" onclick="closeModal('cat-modal')">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('add_budget_category') }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="c-name">Name *</label>
+          <input type="text" id="c-name" name="name" class="form-control" required placeholder="e.g. Food">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="c-icon">Icon</label>
+            <select id="c-icon" name="icon" class="form-control" title="Category icon" aria-label="Category icon">
+              <option value="🍔">🍔 Food</option><option value="🚗">🚗 Transport</option>
+              <option value="🏠">🏠 Rent</option><option value="⚡">⚡ Utilities</option>
+              <option value="🎮">🎮 Entertainment</option><option value="👕">👕 Clothing</option>
+              <option value="💊">💊 Health</option><option value="📚">📚 Education</option>
+              <option value="💰">💰 Savings</option><option value="🎁">🎁 Gifts</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="c-limit">Monthly Budget Limit</label>
+            <input type="number" id="c-limit" name="budget_limit" class="form-control"
+                   step="0.01" min="0" placeholder="0" title="Monthly budget limit" aria-label="Monthly budget limit">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('cat-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ADD TRANSACTION MODAL -->
+<div class="modal-overlay" id="txn-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">💳 Add Transaction</span>
+      <button class="modal-close" onclick="closeModal('txn-modal')">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('add_transaction') }}">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="t-type">Type *</label>
+            <select id="t-type" name="type" class="form-control" title="Transaction type" aria-label="Transaction type">
+              <option value="expense">💸 Expense</option>
+              <option value="income">💵 Income</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="t-amount">Amount *</label>
+            <input type="number" id="t-amount" name="amount" class="form-control"
+                   step="0.01" min="0.01" required placeholder="0.00"
+                   title="Transaction amount" aria-label="Transaction amount">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="t-desc">Description</label>
+          <input type="text" id="t-desc" name="description" class="form-control" placeholder="e.g. Lunch at canteen">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="t-cat">Category</label>
+            <select id="t-cat" name="category_id" class="form-control" title="Transaction category" aria-label="Transaction category">
+              <option value="">— Uncategorized —</option>
+              {% for c in cats %}<option value="{{ c.id }}">{{ c.icon }} {{ c.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="t-date">Date</label>
+            <input type="date" id="t-date" name="transaction_date" class="form-control"
+                   title="Transaction date" aria-label="Transaction date">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('txn-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Transaction</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script id="trend-data" type="application/json">{{ trend | tojson }}</script>
+<script>
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('.modal-overlay').forEach(function(o) {
+  o.addEventListener('click', function(e) { if (e.target === o) o.classList.remove('active'); });
+});
+document.querySelectorAll('.progress-fill[data-width]').forEach(function(el) {
+  el.style.width = el.dataset.width + '%';
+});
+document.querySelectorAll('.txn-delete-form').forEach(function(f) {
+  f.addEventListener('submit', function(e) { e.preventDefault(); if (confirm('Delete this transaction?')) f.submit(); });
+});
+
+// Trend chart
+const trendRaw = JSON.parse(document.getElementById('trend-data').textContent);
+const months = [...new Set(trendRaw.map(function(r){return r.mo;}))].sort();
+const incomeData  = months.map(function(m){ var r=trendRaw.find(function(x){return x.mo===m&&x.type==='income';}); return r?r.total:0; });
+const expenseData = months.map(function(m){ var r=trendRaw.find(function(x){return x.mo===m&&x.type==='expense';}); return r?r.total:0; });
+const labels = months.map(function(m){ return new Date(m+'-01').toLocaleDateString('en-PH',{month:'short',year:'2-digit'}); });
+
+if (months.length > 0) {
+  new Chart(document.getElementById('trendChart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Income', data: incomeData, backgroundColor: 'rgba(16,185,129,0.7)', borderRadius: 6 },
+        { label: 'Spending', data: expenseData, backgroundColor: 'rgba(239,68,68,0.7)', borderRadius: 6 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+      scales: {
+        y: { ticks: { font: { size: 11 } }, grid: { color: '#f1f2fe' } },
+        x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

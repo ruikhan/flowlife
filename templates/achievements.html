@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Achievements{% endblock %}
+{% block page_title %}Achievements{% endblock %}
+{% block page_sub %}{{ earned_count }}/{{ total }} badges earned — keep going!{% endblock %}
+
+{% block content %}
+<!-- Progress Banner -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="ach-trophy-icon">🏆</div>
+      <div class="flex-1">
+        <div class="font-display font-bold ach-title">{{ earned_count }} of {{ total }} Badges Earned</div>
+        <div class="text-dim text-sm">{{ total - earned_count }} more to unlock</div>
+      </div>
+      <div class="badge badge-indigo ach-badge-lg">
+        {{ "{:.0f}".format(earned_count / total * 100) }}%
+      </div>
+    </div>
+    <div class="progress-bar progress-bar-thick">
+      <div class="progress-fill" data-width="{{ (earned_count / total * 100)|int }}"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Badge Grid -->
+<div class="badge-grid">
+  {% for b in badges %}
+  <div class="badge-card {% if b.earned %}earned{% else %}locked{% endif %}">
+    <div class="badge-icon">{{ b.icon }}</div>
+    <div class="badge-name">{{ b.name }}</div>
+    <div class="badge-desc">{{ b.desc }}</div>
+    {% if b.earned %}
+    <div class="badge-date">Earned {{ b.earned_at[:10] }}</div>
+    {% else %}
+    <div class="badge-date badge-date-locked">🔒 Locked</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Tips -->
+<div class="card card-mt">
+  <div class="card-header"><span class="card-title">💡 How to earn more badges</span></div>
+  <div class="card-body">
+    <div class="grid-2">
+      <div>
+        <div class="tips-section-title">📅 Tasks & Goals</div>
+        <div class="text-dim text-sm">Complete tasks to unlock First Step, On a Roll, and Achiever. Create 5 goals to earn Master Planner.</div>
+      </div>
+      <div>
+        <div class="tips-section-title">⏱️ Habits</div>
+        <div class="text-dim text-sm">Build streaks to unlock Habit Forming (3 days), Week Warrior (7 days), and Iron Will (30 days).</div>
+      </div>
+      <div>
+        <div class="tips-section-title">🧘 Mood Logging</div>
+        <div class="text-dim text-sm">Log your mood for 7 consecutive days to earn Self Aware.</div>
+      </div>
+      <div>
+        <div class="tips-section-title">💰 Budget</div>
+        <div class="text-dim text-sm">Stay under your income for a full month to earn Smart Saver.</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.progress-fill[data-width]').forEach(function(el) {
+  el.style.width = el.dataset.width + '%';
+});
+</script>
+{% endblock %}

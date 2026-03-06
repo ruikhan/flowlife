@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block title %}Mood & Energy{% endblock %}
+{% block page_title %}Mood & Energy{% endblock %}
+{% block page_sub %}Track how you feel — patterns reveal a lot{% endblock %}
+
+{% block content %}
+<div class="grid-2 mb-4">
+  <!-- Today's Log -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">{% if today_log %}✏️ Update Today{% else %}🧘 Log Today{% endif %}</span>
+      <span class="badge badge-indigo">{{ today }}</span>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('log_mood') }}" id="mood-form">
+        <div class="form-group">
+          <label class="form-label">How's your mood?</label>
+          <div class="mood-selector">
+            {% for val, emoji, label in [(1,'😞','Bad'),(2,'😔','Low'),(3,'😐','Okay'),(4,'😊','Good'),(5,'😄','Great')] %}
+            <button type="button" class="mood-btn {% if today_log and today_log.mood == val %}selected{% endif %}"
+                    data-val="{{ val }}" data-field="mood" title="{{ label }}" aria-label="{{ label }}">
+              {{ emoji }}
+            </button>
+            {% endfor %}
+          </div>
+          <input type="hidden" name="mood" id="mood-val" value="{{ today_log.mood if today_log else '3' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Energy Level: <span id="energy-label">{{ today_log.energy if today_log else 3 }}/5</span></label>
+          <input type="range" name="energy" id="energy-slider" class="energy-slider"
+                 min="1" max="5" step="1" value="{{ today_log.energy if today_log else 3 }}"
+                 title="Energy level" aria-label="Energy level">
+          <div class="flex justify-between text-xs text-dim energy-hint">
+            <span>😴 Drained</span><span>⚡ Energized</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="mood-note">Note (optional)</label>
+          <textarea id="mood-note" name="note" class="form-control"
+                    placeholder="What's on your mind today?" rows="3">{{ today_log.note if today_log else '' }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">
+          {% if today_log %}Update Check-in{% else %}Save Check-in{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Stats + Chart -->
+  <div>
+    <div class="stats-grid mb-4 stats-grid-2col">
+      <div class="stat-card indigo">
+        <div class="stat-icon">😊</div>
+        <div class="stat-value">{{ "{:.1f}".format(avg_mood) if avg_mood else '—' }}</div>
+        <div class="stat-label">Avg Mood (7d)</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-value">{{ "{:.1f}".format(avg_energy) if avg_energy else '—' }}</div>
+        <div class="stat-label">Avg Energy (7d)</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">📈 14-Day Trend</span></div>
+      <div class="card-body">
+        <canvas id="moodTrend" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- History -->
+<div class="card">
+  <div class="card-header"><span class="card-title">📅 Mood History</span></div>
+  <div class="card-body card-body-flush">
+    {% if history %}
+    {% for h in history %}
+    <div class="mood-history-item">
+      <div class="mood-emoji">
+        {% if h.mood == 5 %}😄{% elif h.mood == 4 %}😊{% elif h.mood == 3 %}😐{% elif h.mood == 2 %}😔{% else %}😞{% endif %}
+      </div>
+      <div class="mood-history-info">
+        <div class="mood-entry-title">Mood {{ h.mood }}/5 · Energy {{ h.energy }}/5</div>
+        {% if h.note %}<div class="text-dim text-sm mood-entry-note">"{{ h.note }}"</div>{% endif %}
+      </div>
+      <div class="mood-date">{{ h.logged_date }}</div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">🧘</div>
+      <div class="empty-state-title">No logs yet</div>
+      <div class="empty-state-sub">Start logging daily to see your emotional patterns.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script id="mood-data" type="application/json">{{ mood_data | tojson }}</script>
+<script>
+// Mood selector
+var selectedMood = parseInt(document.getElementById('mood-val').value) || 3;
+document.querySelectorAll('.mood-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.mood-btn').forEach(function(b) { b.classList.remove('selected'); });
+    btn.classList.add('selected');
+    selectedMood = parseInt(btn.dataset.val);
+    document.getElementById('mood-val').value = selectedMood;
+  });
+});
+
+// Energy slider
+var slider = document.getElementById('energy-slider');
+var label  = document.getElementById('energy-label');
+slider.addEventListener('input', function() { label.textContent = slider.value + '/5'; });
+
+// Trend chart
+var moodRaw = JSON.parse(document.getElementById('mood-data').textContent).reverse();
+var chartLabels = moodRaw.map(function(m) {
+  return new Date(m.logged_date + 'T00:00:00').toLocaleDateString('en-PH', {month:'short',day:'numeric'});
+});
+new Chart(document.getElementById('moodTrend'), {
+  type: 'line',
+  data: {
+    labels: chartLabels,
+    datasets: [
+      { label: 'Mood', data: moodRaw.map(function(m){return m.mood;}),
+        borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)',
+        borderWidth: 2.5, pointRadius: 4, tension: 0.4, fill: true },
+      { label: 'Energy', data: moodRaw.map(function(m){return m.energy;}),
+        borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.06)',
+        borderWidth: 2.5, pointRadius: 4, tension: 0.4, fill: true }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position:'top', labels:{ boxWidth:12, font:{size:11} } } },
+    scales: {
+      y: { min:1, max:5, ticks:{ stepSize:1, font:{size:11} }, grid:{color:'#f1f2fe'} },
+      x: { ticks:{ font:{size:10} }, grid:{display:false} }
+    }
+  }
+});
+</script>
+{% endblock %}

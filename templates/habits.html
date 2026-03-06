@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}Habits{% endblock %}
+{% block page_title %}Habits{% endblock %}
+{% block page_sub %}Build consistency one day at a time{% endblock %}
+{% block topbar_actions %}
+  <button class="btn btn-primary" onclick="openModal('add-modal')">+ New Habit</button>
+{% endblock %}
+
+{% block content %}
+{% if habits %}
+<div class="grid-auto mb-4">
+  {% for h in habits %}
+  <div class="habit-card {% if h.done_today %}done-today{% endif %}" id="habit-card-{{ h.id }}">
+    <div class="habit-top">
+      <div class="habit-icon-wrap" data-hcolor="{{ h.color }}">
+        <span>{{ h.icon }}</span>
+      </div>
+      <div class="flex-1-min0">
+        <div class="habit-name">{{ h.name }}</div>
+        <div class="habit-streak">
+          🔥 {{ h.current_streak }} day streak · best: {{ h.longest_streak }}
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('delete_habit', hid=h.id) }}" class="habit-delete-form">
+        <button type="submit" class="btn btn-ghost btn-sm" title="Delete habit" aria-label="Delete habit">🗑</button>
+      </form>
+    </div>
+
+    <!-- 7-day grid -->
+    <div class="habit-week">
+      {% for day in days %}
+      {% set short = day[8:] %}
+      {% set dow = ['M','T','W','T','F','S','S'] %}
+      <div class="habit-day {% if h.id in week_map and day in week_map[h.id] %}done{% endif %} {% if day == today %}today-dot{% endif %}">
+        <span>{{ short }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <button class="habit-check-btn {% if h.done_today %}done{% endif %}"
+            data-id="{{ h.id }}" data-done="{{ '1' if h.done_today else '0' }}">
+      {% if h.done_today %}✓ Done Today{% else %}Mark Done{% endif %}
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-state-icon">⏱️</div>
+    <div class="empty-state-title">No habits yet</div>
+    <div class="empty-state-sub">Start tracking small daily actions that compound over time.</div>
+    <button class="btn btn-primary mt-cta" onclick="openModal('add-modal')">+ Create Habit</button>
+  </div>
+</div>
+{% endif %}
+
+<!-- ADD HABIT MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">⏱️ New Habit</span>
+      <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('add_habit') }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="h-name">Habit Name *</label>
+          <input type="text" id="h-name" name="name" class="form-control" required placeholder="e.g. Morning meditation">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="h-desc">Description</label>
+          <input type="text" id="h-desc" name="description" class="form-control" placeholder="e.g. 10 minutes after waking up">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="h-icon">Icon</label>
+            <select id="h-icon" name="icon" class="form-control" title="Habit icon" aria-label="Habit icon">
+              <option value="⭐">⭐ Star</option>
+              <option value="💪">💪 Exercise</option>
+              <option value="📖">📖 Reading</option>
+              <option value="🧘">🧘 Meditation</option>
+              <option value="💧">💧 Water</option>
+              <option value="🏃">🏃 Running</option>
+              <option value="🎨">🎨 Creative</option>
+              <option value="💊">💊 Medication</option>
+              <option value="🌿">🌿 Nature</option>
+              <option value="✍️">✍️ Writing</option>
+              <option value="🎵">🎵 Music</option>
+              <option value="😴">😴 Sleep</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="h-color">Color</label>
+            <select id="h-color" name="color" class="form-control" title="Habit color" aria-label="Habit color">
+              <option value="#6366f1">Indigo</option>
+              <option value="#10b981">Green</option>
+              <option value="#f59e0b">Amber</option>
+              <option value="#ec4899">Pink</option>
+              <option value="#3b82f6">Blue</option>
+              <option value="#8b5cf6">Purple</option>
+              <option value="#ef4444">Red</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="h-freq">Frequency</label>
+          <select id="h-freq" name="frequency" class="form-control" title="Habit frequency" aria-label="Habit frequency">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('add-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Habit</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('.modal-overlay').forEach(function(o) {
+  o.addEventListener('click', function(e) { if (e.target === o) o.classList.remove('active'); });
+});
+
+document.querySelectorAll('.habit-check-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var id = btn.dataset.id;
+    var done = btn.dataset.done === '1';
+    var url = '/habits/' + id + (done ? '/unlog' : '/log');
+    fetch(url, { method: 'POST' }).then(function(r) { return r.json(); }).then(function(data) {
+      if (!done) {
+        btn.classList.add('done');
+        btn.textContent = '✓ Done Today';
+        btn.dataset.done = '1';
+        var card = document.getElementById('habit-card-' + id);
+        if (card) card.classList.add('done-today');
+      } else {
+        btn.classList.remove('done');
+        btn.textContent = 'Mark Done';
+        btn.dataset.done = '0';
+        var card = document.getElementById('habit-card-' + id);
+        if (card) card.classList.remove('done-today');
+      }
+    });
+  });
+});
+
+document.querySelectorAll('.habit-delete-form').forEach(function(f) {
+  f.addEventListener('submit', function(e) {
+    e.preventDefault();
+    if (confirm('Delete this habit and all its logs?')) f.submit();
+  });
+});
+
+document.querySelectorAll('.habit-icon-wrap[data-hcolor]').forEach(function(el) {
+  el.style.background = el.dataset.hcolor + '22';
+});
+</script>
+{% endblock %}
