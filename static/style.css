@@ -687,3 +687,4 @@ tr:hover td { background: var(--surface-2); }
 .mood-history-info { flex: 1; }
 .mood-entry-title  { font-size: 13px; font-weight: 600; }
 .mood-entry-note   { margin-top: 2px; }
+.mt-8 { margin-top: 8px; }
