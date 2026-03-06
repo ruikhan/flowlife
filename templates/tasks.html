@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}Tasks{% endblock %}
+{% block page_title %}Tasks{% endblock %}
+{% block page_sub %}Stay on top of what matters{% endblock %}
+{% block topbar_actions %}
+  <button class="btn btn-primary" onclick="openModal('add-modal')">+ Add Task</button>
+{% endblock %}
+
+{% block content %}
+<!-- Filter Tabs -->
+<div class="card mb-4">
+  <div class="card-body card-body-sm">
+    <div class="filter-row">
+      {% for status, label in [('all','All'), ('pending','Pending'), ('done','Completed')] %}
+      <a href="{{ url_for('tasks', status=status) }}"
+         class="btn {% if filter_status == status %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+        {{ label }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body card-body-flush">
+    {% if tasks %}
+    {% for t in tasks %}
+    <div class="task-item {% if t.status == 'done' %}done{% endif %}" id="task-{{ t.id }}">
+      <div class="task-check {% if t.status == 'done' %}checked{% endif %}"
+           data-id="{{ t.id }}" title="Mark complete" role="button" aria-label="Complete task"></div>
+      <div class="priority-dot {{ t.priority }}"></div>
+      <div class="task-info">
+        <div class="task-title">{{ t.title }}</div>
+        <div class="task-meta">
+          {% if t.goal_title %}🎯 {{ t.goal_title }} · {% endif %}
+          {% if t.due_date %}📅 {{ t.due_date }} · {% endif %}
+          <span class="badge badge-{{ 'red' if t.priority=='high' else 'amber' if t.priority=='medium' else 'gray' }}">{{ t.priority }}</span>
+        </div>
+      </div>
+      <div class="task-actions">
+        <form method="POST" action="{{ url_for('delete_task', tid=t.id) }}" class="task-delete-form">
+          <button type="submit" class="btn btn-ghost btn-sm" title="Delete task" aria-label="Delete task">🗑</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">✅</div>
+      <div class="empty-state-title">{{ 'No tasks here!' if filter_status == 'all' else 'Nothing ' + filter_status }}</div>
+      <div class="empty-state-sub">{% if filter_status != 'done' %}Add your first task to get started.{% endif %}</div>
+      {% if filter_status != 'done' %}
+      <button class="btn btn-primary mt-cta" onclick="openModal('add-modal')">+ Add Task</button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ADD TASK MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">✅ Add Task</span>
+      <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('add_task') }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="t-title">Task Title *</label>
+          <input type="text" id="t-title" name="title" class="form-control" required placeholder="What needs to be done?">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="t-desc">Description</label>
+          <textarea id="t-desc" name="description" class="form-control" placeholder="Optional details..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="t-priority">Priority</label>
+            <select id="t-priority" name="priority" class="form-control" title="Task priority" aria-label="Task priority">
+              <option value="high">🔴 High</option>
+              <option value="medium" selected>🟡 Medium</option>
+              <option value="low">🟢 Low</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="t-due">Due Date</label>
+            <input type="date" id="t-due" name="due_date" class="form-control" title="Task due date" aria-label="Task due date">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="t-goal">Link to Goal</label>
+          <select id="t-goal" name="goal_id" class="form-control" title="Link to goal" aria-label="Link to goal">
+            <option value="">— No goal —</option>
+            {% for g in goals %}<option value="{{ g.id }}">{{ g.title }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('add-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('.modal-overlay').forEach(function(o) {
+  o.addEventListener('click', function(e) { if (e.target === o) o.classList.remove('active'); });
+});
+
+document.querySelectorAll('.task-check:not(.checked)').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var id = btn.dataset.id;
+    fetch('/tasks/' + id + '/done', { method: 'POST' }).then(function() {
+      var row = document.getElementById('task-' + id);
+      row.classList.add('done');
+      btn.classList.add('checked');
+    });
+  });
+});
+
+document.querySelectorAll('.task-delete-form').forEach(function(f) {
+  f.addEventListener('submit', function(e) {
+    e.preventDefault();
+    if (confirm('Delete this task?')) f.submit();
+  });
+});
+</script>
+{% endblock %}

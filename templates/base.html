@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}FlowLife{% endblock %} — Plan it. Track it. Live it.</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🌊</div>
+      <div>
+        <div class="sidebar-logo-text">FlowLife</div>
+        <div class="sidebar-logo-sub">YOUR PERSONAL OS</div>
+      </div>
+    </div>
+
+    <nav>
+      <div class="nav-section">
+        <div class="nav-section-label">Overview</div>
+        <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint=='dashboard' %}active{% endif %}">
+          <span class="nav-icon">🏠</span> Dashboard
+        </a>
+        <a href="{{ url_for('achievements') }}" class="nav-link {% if request.endpoint=='achievements' %}active{% endif %}">
+          <span class="nav-icon">🏆</span> Achievements
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Planner</div>
+        <a href="{{ url_for('goals') }}" class="nav-link {% if request.endpoint=='goals' %}active{% endif %}">
+          <span class="nav-icon">🎯</span> Goals
+        </a>
+        <a href="{{ url_for('tasks') }}" class="nav-link {% if request.endpoint=='tasks' %}active{% endif %}">
+          <span class="nav-icon">✅</span> Tasks
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Tracker</div>
+        <a href="{{ url_for('habits') }}" class="nav-link {% if request.endpoint=='habits' %}active{% endif %}">
+          <span class="nav-icon">⏱️</span> Habits
+        </a>
+        <a href="{{ url_for('budget') }}" class="nav-link {% if request.endpoint=='budget' %}active{% endif %}">
+          <span class="nav-icon">💰</span> Budget
+        </a>
+        <a href="{{ url_for('mood') }}" class="nav-link {% if request.endpoint=='mood' %}active{% endif %}">
+          <span class="nav-icon">🧘</span> Mood & Energy
+        </a>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar" data-color="{{ session.get('avatar_color','#6366f1') }}">
+          {{ session.get('full_name','U')[0].upper() }}
+        </div>
+        <div>
+          <div class="user-name">{{ session.get('full_name', session.get('username','')) }}</div>
+          <div class="user-sub">@{{ session.get('username','') }}</div>
+        </div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="logout-btn">
+        <span>🚪</span> Sign out
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+        <div class="topbar-sub">{% block page_sub %}{% endblock %}</div>
+      </div>
+      <div class="topbar-actions">
+        {% block topbar_actions %}{% endblock %}
+      </div>
+    </header>
+
+    <div class="page-content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
+            {{ '✅' if category == 'success' else '⚠️' }} {{ message }}
+          </div>
+        {% endfor %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% block scripts %}{% endblock %}
+<script>
+  var avatar = document.querySelector('.user-avatar[data-color]');
+  if (avatar) avatar.style.background = avatar.dataset.color;
+</script>
+</body>
+</html>

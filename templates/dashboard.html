@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Good {{ 'morning' if now_hour < 12 else 'afternoon' if now_hour < 17 else 'evening' }}, {{ session.get('full_name','').split()[0] }}! 👋{% endblock %}
+{% block page_sub %}Here's your life at a glance — {{ today }}{% endblock %}
+
+{% block content %}
+<!-- Stats Grid -->
+<div class="stats-grid mb-4">
+  <div class="stat-card indigo">
+    <div class="stat-icon">🎯</div>
+    <div class="stat-value">{{ active_goals }}</div>
+    <div class="stat-label">Active Goals</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value">{{ tasks_done }}</div>
+    <div class="stat-label">Tasks Completed</div>
+    <div class="stat-sub">{{ tasks_today }} due today</div>
+  </div>
+  <div class="stat-card amber">
+    <div class="stat-icon">⏱️</div>
+    <div class="stat-value">{{ habits_today }}/{{ total_habits }}</div>
+    <div class="stat-label">Habits Today</div>
+  </div>
+  <div class="stat-card pink">
+    <div class="stat-icon">💰</div>
+    <div class="stat-value">₱{{ "{:,.0f}".format(income - spending) }}</div>
+    <div class="stat-label">Net Balance</div>
+    <div class="stat-sub">₱{{ "{:,.0f}".format(spending) }} spent</div>
+  </div>
+</div>
+
+<div class="grid-2 mb-4">
+  <!-- AI Suggestions -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">🧠 Smart Suggestions</span>
+      <span class="badge badge-indigo">AI</span>
+    </div>
+    <div class="card-body">
+      {% if suggestions %}
+        {% for s in suggestions %}
+        <div class="suggestion-card {{ s.type }}">
+          <div class="suggestion-icon">{{ s.icon }}</div>
+          <div>
+            <div class="suggestion-title">{{ s.title }}</div>
+            <div class="suggestion-body">{{ s.body }}</div>
+            {% if s.action %}
+            <a href="{{ s.link }}" class="suggestion-link">{{ s.action }} →</a>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">🌟</div>
+          <div class="empty-state-title">All caught up!</div>
+          <div class="empty-state-sub">Keep up the great work.</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Mood + Habits -->
+  <div>
+    <!-- Today's Mood -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <span class="card-title">📈 Today's Check-in</span>
+        <a href="{{ url_for('mood') }}" class="btn btn-secondary btn-sm">
+          {% if today_mood %}Update{% else %}Log Now{% endif %}
+        </a>
+      </div>
+      <div class="card-body">
+        {% if today_mood %}
+        <div class="flex gap-3 items-center">
+          <div class="fs-xl">
+            {% if today_mood.mood == 5 %}😄
+            {% elif today_mood.mood == 4 %}😊
+            {% elif today_mood.mood == 3 %}😐
+            {% elif today_mood.mood == 2 %}😔
+            {% else %}😞{% endif %}
+          </div>
+          <div>
+            <div class="font-bold fw-bold-md">
+              Mood: {{ today_mood.mood }}/5 · Energy: {{ today_mood.energy }}/5
+            </div>
+            <div class="text-dim text-sm">Logged today</div>
+          </div>
+          <div class="badge badge-indigo ml-auto">🏅 {{ badge_count }}</div>
+        </div>
+        {% else %}
+        <div class="pad-center">
+          <div class="fs-lg">🧘</div>
+          <div class="text-dim text-sm">No check-in yet today</div>
+          <a href="{{ url_for('mood') }}" class="btn btn-primary btn-sm mt-btn">Log Mood</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Top Habits -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🔥 Habit Streaks</span>
+        <a href="{{ url_for('habits') }}" class="btn btn-secondary btn-sm">All Habits</a>
+      </div>
+      <div class="card-body card-body-flush">
+        {% for h in top_habits %}
+        <div class="task-item">
+          <span class="fs-md">{{ h.icon }}</span>
+          <div class="task-info">
+            <div class="task-title">{{ h.name }}</div>
+            <div class="task-meta">🔥 {{ h.current_streak }} day streak</div>
+          </div>
+          {% if h.done_today %}
+          <span class="badge badge-green">✓ Done</span>
+          {% else %}
+          <span class="badge badge-gray">Pending</span>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state pad-sm">
+          <div class="empty-state-sub">No habits yet. <a href="{{ url_for('habits') }}" class="auth-link">Add one →</a></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Tasks + Mood Chart -->
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">✅ Recent Tasks</span>
+      <a href="{{ url_for('tasks') }}" class="btn btn-secondary btn-sm">All Tasks</a>
+    </div>
+    <div class="card-body card-body-flush">
+      {% for t in recent_tasks %}
+      <div class="task-item {% if t.status == 'done' %}done{% endif %}">
+        <div class="priority-dot {{ t.priority }}"></div>
+        <div class="task-info">
+          <div class="task-title">{{ t.title }}</div>
+          <div class="task-meta">{{ t.due_date or 'No due date' }}</div>
+        </div>
+        {% if t.status == 'done' %}
+        <span class="badge badge-green">Done</span>
+        {% else %}
+        <span class="badge badge-{{ 'red' if t.priority=='high' else 'amber' if t.priority=='medium' else 'gray' }}">{{ t.priority }}</span>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="empty-state pad-sm">
+        <div class="empty-state-sub">No tasks yet. <a href="{{ url_for('tasks') }}" class="auth-link">Add one →</a></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📈 Mood This Week</span>
+    </div>
+    <div class="card-body">
+      <canvas id="moodChart" height="160"></canvas>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script id="dash-data" type="application/json">{{ mood_week | tojson }}</script>
+<script>
+const moodData = JSON.parse(document.getElementById('dash-data').textContent);
+const days = [];
+for (let i = 6; i >= 0; i--) {
+  const d = new Date(); d.setDate(d.getDate() - i);
+  days.push(d.toISOString().slice(0,10));
+}
+const moodMap = {}; const energyMap = {};
+moodData.forEach(function(m) { moodMap[m.logged_date] = m.mood; energyMap[m.logged_date] = m.energy; });
+const labels = days.map(function(d) { return new Date(d+'T00:00:00').toLocaleDateString('en-PH',{weekday:'short'}); });
+
+new Chart(document.getElementById('moodChart'), {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      { label: 'Mood', data: days.map(function(d){ return moodMap[d]||null; }),
+        borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)',
+        borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#6366f1',
+        tension: 0.4, fill: true, spanGaps: true },
+      { label: 'Energy', data: days.map(function(d){ return energyMap[d]||null; }),
+        borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)',
+        borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#10b981',
+        tension: 0.4, fill: true, spanGaps: true }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+    scales: {
+      y: { min: 1, max: 5, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f1f2fe' } },
+      x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+    }
+  }
+});
+</script>
+{% endblock %}
