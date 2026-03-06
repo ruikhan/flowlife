@@ -772,6 +772,8 @@ def achievements():
         earned_count=len(earned_keys), total=len(BADGES))
 
 # ════════════════════════════════════════════════════════════════════════
+# Always init DB — runs under both gunicorn and python app.py
+init_db()
+
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)
